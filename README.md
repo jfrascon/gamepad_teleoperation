@@ -1,15 +1,18 @@
 
 # gamepad_teleoperation
 
-This package provides a wrapper for gamepad-based teleoperation in ROS 2, built on top of the original Robotnik package ([robotnik_pad](https://github.com/RobotnikAutomation/robotnik_pad)).
+This package provides a wrapper for gamepad-based teleoperation in ROS 2, built on top of the original package `robotnik_pad` developed by **Robotnik**.
+The underlying `robotnik_pad` package allows teleoperation of **differential**, **ackermann**, and **omnidirectional** robot platforms.
 
-The underlying robotnik_pad package allows teleoperation of differential, ackermann, and omnidirectional robot platforms. For more details and supported features, see the official Robotnik repository: https://github.com/RobotnikAutomation/robotnik_pad
+For more details and supported features, see the official Robotnik repository:<br>
+https://github.com/RobotnikAutomation/robotnik_pad
 
 ## Purpose
 It allows easy launching of gamepad teleoperation, integrating the `joy_linux` and `robotnik_pad` nodes with example configurations and a ready-to-use Python launch file for mobile robots.
 
 ## Multirobot compatibility
-The use of the `robot_name` argument is mandatory in the launch file, while `namespace` is optional but highly recommended. This ensures that all resources (topics, nodes, parameters) are properly namespaced, making the package compatible with multirobot scenarios and preventing resource conflicts. Users must always specify a unique `robot_name` for each robot instance. For multirobot setups, it is recommended (but not required) to use a unique `namespace` for each robot. The effective namespace used by the nodes will be the combination of the provided `namespace` (if any) and the `robot_name`.
+
+The `robot_name` argument is required in the launch file, while `namespace` is optional but *highly recommended* for multirobot scenarios. This ensures that all resources (topics, nodes, parameters) are properly namespaced, avoiding conflicts between robots. Always provide a unique `robot_name` for each robot instance. Using a meaningful `namespace` is recommended for clarity and better organization of your robot resources. The effective namespace for all nodes will be the combination of the given `namespace` (if any) and the `robot_name`.
 
 ## Main Features
 - Based on Robotnik's `robotnik_pad` package.

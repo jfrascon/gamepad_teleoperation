@@ -1,0 +1,12 @@
+/**/joy_linux:
+  ros__parameters:
+    dev: /dev/input/js0
+    # If the 'dev_name is found in the system, then the driver uses a device called 'dev_name'
+    # If the 'dev_name is not found in the system, then the driver uses the device 'dev'
+    # dev_name: _x_
+    # dev_eff: /dev/input/event0
+    deadzone: 0.05
+    autorepeat_rate: 30.0
+    coalesce_interval: 0.001
+    default_trig_val: False
+    sticky_buttons: False

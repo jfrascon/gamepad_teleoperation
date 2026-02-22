@@ -24,35 +24,25 @@ def generate_launch_description():
         # Parameters
         ########################################################################
         DeclareLaunchArgument(
-            'joy_linux_params_file',
+            'params_file',
             default_value=os.path.join(
-                get_package_share_directory('gamepad_teleoperation'), 'config', 'example_joy_linux.yaml'
+                get_package_share_directory('gamepad_teleoperation'), 'config', 'example_gamepad_teleoperation.yaml'
             ),
-            description='Path to the joy_linux parameters file',
-        ),
-        DeclareLaunchArgument(
-            'robotnik_pad_params_file',
-            default_value=os.path.join(
-                get_package_share_directory('gamepad_teleoperation'), 'config', 'example_robotnik_pad.yaml'
-            ),
-            description='Path to the robotnik_pad parameters file',
+            description='Path to the gamepad_teleoperation parameter file',
         ),
         ########################################################################
         # Remappings
         ########################################################################
-        DeclareLaunchArgument('joy_linux_remappings', default_value='', description=rlh.REMAPPINGS_DESC),
-        ########################################################################
-        # Logging options
-        ########################################################################
+        # Name of the parameter is: <executable_name>_topic_remappings
         DeclareLaunchArgument(
-            'joy_linux_log_options', default_value=rlh.default_log_options_str(), description=rlh.LOG_OPTIONS_DESC
-        ),
-        DeclareLaunchArgument(
-            'robotnik_pad_log_options', default_value=rlh.default_log_options_str(), description=rlh.LOG_OPTIONS_DESC
+            'joy_linux_node_topic_remappings', default_value='', description=rlh.TOPIC_REMAPPINGS_DESC
         ),
         ########################################################################
         # Node options
         ########################################################################
+        # Name of the parameter is: <executable_name>_node_options
+        # If <executable_name> already ends with "_node", do not duplicate "_node"
+        # (example: joy_linux_node -> joy_linux_node_options).
         DeclareLaunchArgument(
             'joy_linux_node_options', default_value=rlh.default_node_options_str(), description=rlh.NODE_OPTIONS_DESC
         ),
@@ -60,31 +50,61 @@ def generate_launch_description():
             'robotnik_pad_node_options', default_value=rlh.default_node_options_str(), description=rlh.NODE_OPTIONS_DESC
         ),
         ########################################################################
+        # Logging options
+        ########################################################################
+        # Name of the parameter is: <executable_name>_logging_options
+        DeclareLaunchArgument(
+            'joy_linux_node_logging_options',
+            default_value=rlh.default_logging_options_str(),
+            description=rlh.LOGGING_OPTIONS_DESC,
+        ),
+        DeclareLaunchArgument(
+            'robotnik_pad_logging_options',
+            default_value=rlh.default_logging_options_str(),
+            description=rlh.LOGGING_OPTIONS_DESC,
+        ),
+        ########################################################################
         # Launch nodes
         ########################################################################
-        OpaqueFunction(function=rlh.set_robot_namespace, args=['namespace', 'robot_name']),
-        OpaqueFunction(function=launch_joy_linux),
+        OpaqueFunction(function=launch_joy_linux_node),
         OpaqueFunction(function=launch_robotnik_pad),
     ]
 
     return LaunchDescription(ldes)
 
 
-def launch_joy_linux(ctx: LaunchContext) -> list[LaunchDescriptionEntity]:
-    node_options = rlh.parse_cli_node_opts(LaunchConfiguration('joy_linux_node_options').perform(ctx))
+def launch_joy_linux_node(ctx: LaunchContext) -> list[LaunchDescriptionEntity]:
+    parameters = []
+
+    params_file = LaunchConfiguration('params_file').perform(ctx).strip()
+
+    # Add parameter file only if it's not empty.
+    if params_file:
+        parameters.append(ParameterFile(params_file, allow_substs=True))
+
+    parameters.append({'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)})
+
+    node_options = rlh.process_node_options(LaunchConfiguration('joy_linux_node_options').perform(ctx))
+    node_name = str(node_options['name']) or 'joy_linux'
+
+    robot_ns = rlh.create_robot_namespace(
+        LaunchConfiguration('namespace').perform(ctx), LaunchConfiguration('robot_name').perform(ctx)
+    )
 
     return [
         Node(
             package='joy_linux',
             executable='joy_linux_node',
-            name=str(node_options['name']) or 'joy_linux',
-            namespace=LaunchConfiguration('robot_namespace'),
-            parameters=[
-                ParameterFile(LaunchConfiguration('joy_linux_params_file').perform(ctx), allow_substs=True),
-                {'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)},
-            ],
-            remappings=rlh.parse_cli_remappings(LaunchConfiguration('joy_linux_remappings').perform(ctx)),
-            ros_arguments=rlh.parse_cli_log_opts(LaunchConfiguration('joy_linux_log_options').perform(ctx)),
+            name=node_name,
+            # Insert the node into the robot_ns.
+            namespace=robot_ns,
+            parameters=parameters,
+            remappings=rlh.process_topic_remappings(
+                LaunchConfiguration('joy_linux_node_topic_remappings').perform(ctx)
+            ),
+            ros_arguments=rlh.process_logging_options(
+                LaunchConfiguration('joy_linux_node_logging_options').perform(ctx)
+            ),
             output=node_options['output'],
             emulate_tty=node_options['emulate_tty'],
             respawn=node_options['respawn'],
@@ -94,19 +114,34 @@ def launch_joy_linux(ctx: LaunchContext) -> list[LaunchDescriptionEntity]:
 
 
 def launch_robotnik_pad(ctx: LaunchContext) -> list[LaunchDescriptionEntity]:
-    node_options = rlh.parse_cli_node_opts(LaunchConfiguration('robotnik_pad_node_options').perform(ctx))
+    parameters = []
+
+    params_file = LaunchConfiguration('params_file').perform(ctx).strip()
+
+    # Add parameter file only if it's not empty.
+    if params_file:
+        parameters.append(ParameterFile(params_file, allow_substs=True))
+
+    parameters.append({'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)})
+
+    # node_options include 'name', 'output', 'emulate_tty', 'respawn', 'respawn_delay',
+    node_options = rlh.process_node_options(LaunchConfiguration('robotnik_pad_node_options').perform(ctx))
+    node_name = str(node_options['name']) or 'robotnik_pad'
+
+    robot_ns = rlh.create_robot_namespace(
+        LaunchConfiguration('namespace').perform(ctx), LaunchConfiguration('robot_name').perform(ctx)
+    )
 
     return [
         Node(
             package='robotnik_pad',
             executable='robotnik_pad',
-            name=str(node_options['name']) or 'robotnik_pad',
-            namespace=LaunchConfiguration('robot_namespace'),
-            parameters=[
-                ParameterFile(LaunchConfiguration('robotnik_pad_params_file').perform(ctx), allow_substs=True),
-                {'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)},
-            ],
-            ros_arguments=rlh.parse_cli_log_opts(LaunchConfiguration('robotnik_pad_log_options').perform(ctx)),
+            name=node_name,
+            # Insert the node into the robot_ns.
+            namespace=robot_ns,
+            parameters=parameters,
+            # Topic definition is done in the parameter file.
+            ros_arguments=rlh.process_logging_options(LaunchConfiguration('robotnik_pad_logging_options').perform(ctx)),
             output=node_options['output'],
             emulate_tty=node_options['emulate_tty'],
             respawn=node_options['respawn'],

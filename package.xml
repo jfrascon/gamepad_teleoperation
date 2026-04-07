@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>gamepad_teleoperation</name>
+  <name>teleop_twist_gamepad</name>
   <version>1.0.0</version>
   <description>Gamepad teleoperation</description>
   <maintainer email="jfrascon@eurecat.org">jfrascon</maintainer>

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(gamepad_teleoperation)
+project(teleop_twist_gamepad)
 
 find_package(ament_cmake REQUIRED)
 

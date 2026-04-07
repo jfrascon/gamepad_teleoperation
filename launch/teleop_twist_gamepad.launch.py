@@ -18,11 +18,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'params_file',
             default_value=os.path.join(
-                get_package_share_directory('gamepad_teleoperation'),
+                get_package_share_directory('teleop_twist_gamepad'),
                 'config',
                 'example_logitech_f710_teleoperation.yaml',
             ),
-            description='Path to the gamepad_teleoperation parameter file',
+            description='Path to the teleop_twist_gamepad parameter file',
         ),
         DeclareLaunchArgument(
             'use_sim_time',

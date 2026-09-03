@@ -138,3 +138,8 @@ source install/setup.bash
 colcon test --merge-install --packages-select teleop_twist_gamepad
 colcon test-result --test-result-base build/teleop_twist_gamepad --verbose
 ```
+
+## License
+
+This package is distributed under the Apache License 2.0.
+See [LICENSE](LICENSE).

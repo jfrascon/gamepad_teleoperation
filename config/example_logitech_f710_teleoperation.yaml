@@ -1,6 +1,7 @@
 /**/joy_linux:
   ros__parameters:
-    use_sim_time: $(var use_sim_time)
+    # teleop_twist_gamepad.launch.py sets use_sim_time after loading this file.
+    # Do not configure use_sim_time in this file.
     dev: /dev/input/js0
     # If `dev_name` exists in the system, `joy_linux_node` opens that device by name.
     # Otherwise, `joy_linux_node` falls back to the `dev` path.
@@ -9,12 +10,13 @@
     deadzone: 0.05
     autorepeat_rate: 30.0
     coalesce_interval: 0.001
-    default_trig_val: False
-    sticky_buttons: False
+    default_trig_val: false
+    sticky_buttons: false
 
 /**/robotnik_pad:
   ros__parameters:
-    use_sim_time: $(var use_sim_time)
+    # teleop_twist_gamepad.launch.py sets use_sim_time after loading this file.
+    # Do not configure use_sim_time in this file.
     desired_freq: 30.0
     pad:
       num_of_buttons: 11
@@ -37,6 +39,6 @@
         button_speed_up: 3
         button_speed_down: 0
         button_kinematic_mode: 2
-        use_accel_watchdog: False
+        use_accel_watchdog: false
         axis_watchdog: [6, 7, 8]
         watchdog_duration: 0.0

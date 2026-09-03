@@ -1,203 +1,140 @@
-# [`teleop_twist_gamepad`](https://github.com/jfrascon/teleop_twist_gamepad)
+# [teleop_twist_gamepad](https://github.com/jfrascon/teleop_twist_gamepad)
 
-This package provides a wrapper for gamepad-based teleoperation in ROS 2, built on top of the original package `robotnik_pad` developed by **Robotnik**. The underlying `robotnik_pad` package allows teleoperation of **differential**, **ackermann**, and **omnidirectional** robot platforms.
+`teleop_twist_gamepad` is a ROS 2 integration package for gamepad teleoperation.
+It starts `joy_linux` to read the gamepad and `robotnik_pad` to convert `sensor_msgs/msg/Joy` messages into velocity commands.
 
-For more details and supported features, see the official Robotnik repository:<br/>
-<https://github.com/RobotnikAutomation/robotnik_pad>
+The Robotnik Movement plugin supports differential, Ackermann and omnidirectional command modes.
+The button configured as `button_kinematic_mode` changes mode at runtime.
+See the [Robotnik package](https://github.com/RobotnikAutomation/robotnik_pad) for its plugin behavior.
 
-## What this package launches
+## Architecture
 
-The launch file starts these two nodes in the same namespace:
+The package owns configuration and orchestration, not joystick or motion-control algorithms:
 
-- `joy_linux_node`, which reads joystick events from the gamepad device.
-- `robotnik_pad`, which converts joystick messages into velocity commands.
+```text
+Linux gamepad
+    |
+    v
+joy_linux_node
+    |  sensor_msgs/msg/Joy
+    v
+robotnik_pad + Movement plugin
+    |  geometry_msgs/msg/Twist
+    v
+configured command topic
+```
 
-The `namespace` launch argument sets that shared ROS namespace. Use a different namespace for each robot instance in multirobot scenarios so topics, node names, and parameters do not collide.
+Only the Movement plugin is enabled by the installed example.
+The Robotnik charge plugin and its navigation-message dependency are not part of this package's configured runtime behavior.
+This does not remove dependencies that the external `robotnik_pad` repository requires to build all its plugins.
 
-The package also installs `config/example_logitech_f710_teleoperation.yaml`, which configures
-both nodes. That file keeps `use_sim_time` connected to the launch argument and defines the rest
-of the joystick and teleoperation parameters as literals.
+## Launch contract
 
-## Configuration model
+`teleop_twist_gamepad.launch.py` starts both nodes in one explicit namespace.
 
-`params_file` is always loaded as the node parameter file.
+| Argument | Default | Responsibility |
+| --- | --- | --- |
+| `namespace` | empty | Namespace shared by both nodes. |
+| `params_file` | installed Logitech F710 YAML | Complete functional configuration for both nodes. |
+| `params_file_allow_substs` | `False` | Allow ROS launch substitutions inside the YAML file. |
+| `use_sim_time` | `False` | Select the ROS simulation clock for both nodes. |
+| `joy_linux_node_args` | standard JSON | Configure the `joy_linux` Node action. |
+| `robotnik_pad_node_args` | standard JSON | Configure the `robotnik_pad` Node action. |
 
-If you do not pass `params_file`, the default value points to the example YAML installed by this package. If you pass your own YAML file, that file is used instead.
+Both node-argument defaults are:
 
-Inside the YAML file, values written as `$(var <launch_argument_name>)` are resolved from the
-current launch context. Values written as literals are used as-is.
+```json
+{"output":"both","ros_arguments":["--log-level","info"]}
+```
 
-The launch file also exposes these helper-based arguments:
+The launch file creates one `ParameterFile` and passes that same object to both nodes.
+When substitutions are enabled, the shared object ensures that launch renders the YAML at most once.
+The launch-owned `use_sim_time` parameter is appended after the YAML for both nodes.
 
-- Topic remappings (`joy_linux_node_remappings`)
-- Logging options (`joy_linux_node_logging_options`, `robotnik_pad_node_logging_options`)
-- Node options (`joy_linux_node_options`, `robotnik_pad_node_options`)
+The YAML keys must match the effective node names.
+If a caller changes a node name through `node_args`, that caller must update the YAML node key.
 
-Use the logging options arguments to change the node log level, for example `log-level=debug`.
+## Destructive API changes
 
-## Examples
+The launch file no longer exposes individual node parameters or the old helper arguments.
+Configure functional behavior in the YAML file and action behavior in the corresponding `node_args`.
 
-### Example 1: launch with the default parameter file
+Removed groups include:
+
+- `joy_linux_dev`, `joy_linux_deadzone` and the other `joy_linux_*` parameter overrides.
+- `robotnik_pad_desired_freq` and the other `robotnik_pad_*` parameter overrides.
+- `joy_linux_node_remappings`.
+- `joy_linux_node_options` and `robotnik_pad_node_options`.
+- `joy_linux_node_logging_options` and `robotnik_pad_node_logging_options`.
+
+A structured remapping now belongs in `joy_linux_node_args`:
+
+```json
+{
+  "output": "both",
+  "remappings": [["joy", "joypad"]],
+  "ros_arguments": ["--log-level", "debug"]
+}
+```
+
+## Installed Logitech F710 configuration
+
+The installed `config/example_logitech_f710_teleoperation.yaml` configures:
+
+- `/dev/input/js0` as the joystick device.
+- A `0.05` axis deadzone.
+- A 30 Hz joystick autorepeat rate.
+- The Robotnik Movement plugin.
+- Linear and angular speed limits.
+- Deadman, speed and kinematic-mode buttons.
+- The command topic `twist_cmd/joypad`.
+
+The parameter file intentionally omits `use_sim_time`.
+Clock selection belongs to the launch file.
+
+Launch the default configuration:
 
 ```bash
 ros2 launch teleop_twist_gamepad teleop_twist_gamepad.launch.py
 ```
 
-This command uses the default `params_file`, which points to
-`config/example_logitech_f710_teleoperation.yaml`.
-
-That file is a mostly literal configuration for a Logitech F710 layout. It keeps only
-`use_sim_time` connected to the launch argument. The joystick device, deadzone, teleoperation
-plugin settings, and watchdog configuration are read directly from the YAML file.
-
-```yaml
-/**/joy_linux:
-  ros__parameters:
-    use_sim_time: $(var use_sim_time)
-    dev: /dev/input/js0
-    dev_name: _not_provided_
-    deadzone: 0.05
-    autorepeat_rate: 30.0
-    coalesce_interval: 0.001
-    default_trig_val: false
-    sticky_buttons: false
-
-/**/robotnik_pad:
-  ros__parameters:
-    use_sim_time: $(var use_sim_time)
-    desired_freq: 30.0
-    pad:
-      num_of_buttons: 11
-      num_of_axes: 8
-      joy_topic: joy
-      joy_timeout: 1.0
-    plugins:
-      - Movement
-    Movement:
-      type: robotnik_pad_plugins/Movement
-      max_linear_speed: 1.0
-      max_angular_speed: 1.5
-      cmd_topic_vel: twist_cmd/joypad
-      config:
-        button_deadman: 5
-        axis_linear_x: 1
-        axis_linear_y: 0
-        axis_angular_z: 3
-        button_speed_up: 3
-        button_speed_down: 0
-        button_kinematic_mode: 2
-        use_accel_watchdog: false
-        axis_watchdog: [6, 7, 8]
-        watchdog_duration: 0.0
-```
-
-If you want the YAML file itself to stay generic and defer most values to launch arguments, use a
-custom `params_file` like the next example.
-
-### Example 2: launch with a custom parameter file and CLI overrides
+Use another gamepad configuration:
 
 ```bash
 ros2 launch teleop_twist_gamepad teleop_twist_gamepad.launch.py \
- use_sim_time:=true \
- namespace:=myproject \
- params_file:=/path/to/my_teleop_twist_gamepad.yaml \
- joy_linux_node_remappings:="joy:=joypad" \
- joy_linux_node_logging_options:="log-level=debug,disable-stdout-logs=False" \
- robotnik_pad_node_logging_options:="log-level=debug" \
- joy_linux_node_options:="name=joy_linux_custom,output=screen,emulate_tty=True,respawn=True,respawn_delay=2.0" \
- robotnik_pad_node_options:="name=robotnik_pad_custom,output=screen,emulate_tty=True"
+  namespace:=robot_01 \
+  params_file:=/absolute/path/to/gamepad.yaml
 ```
 
-You can override any launch file argument as needed. See the launch file for all available options.
+Change the joystick topic and enable debug logging:
 
-The custom `params_file` can mix literal values and `$(var ...)` substitutions. For example, this file hardcodes the joystick device and several movement parameters, but it still keeps `use_sim_time`, `desired_freq`, and `cmd_topic_vel` configurable through launch arguments.
-
-The top-level YAML keys in this example are `/**/joy_linux_custom` and `/**/robotnik_pad_custom` because the command above sets those node names through `joy_linux_node_options` and `robotnik_pad_node_options`. If you use different node names, update those YAML keys accordingly.
-
-```yaml
-/**/joy_linux_custom:
-  ros__parameters:
-    use_sim_time: $(var use_sim_time)
-    dev: /dev/input/js1
-    dev_name: _not_provided_
-    deadzone: 0.08
-    autorepeat_rate: 40.0
-    coalesce_interval: 0.001
-    default_trig_val: false
-    sticky_buttons: false
-
-/**/robotnik_pad_custom:
-  ros__parameters:
-    use_sim_time: $(var use_sim_time)
-    desired_freq: $(var robotnik_pad_desired_freq)
-    pad:
-      num_of_buttons: 11
-      num_of_axes: 8
-      joy_topic: joy
-      joy_timeout: 1.0
-    plugins:
-      - Movement
-    Movement:
-      type: robotnik_pad_plugins/Movement
-      max_linear_speed: 1.2
-      max_angular_speed: 1.8
-      cmd_topic_vel: $(var robotnik_pad_movement_cmd_topic_vel)
-      config:
-        button_deadman: 5
-        axis_linear_x: 1
-        axis_linear_y: 0
-        axis_angular_z: 3
-        button_speed_up: 3
-        button_speed_down: 0
-        button_kinematic_mode: 2
-        use_accel_watchdog: false
-        axis_watchdog: [6, 7, 8]
-        watchdog_duration: 0.0
+```bash
+ros2 launch teleop_twist_gamepad teleop_twist_gamepad.launch.py \
+  joy_linux_node_args:='{"output":"both","remappings":[["joy","joypad"]],"ros_arguments":["--log-level","debug"]}'
 ```
 
-### Example 3: launch with a mostly literal parameter file
+## Dependencies
 
-In this style, the YAML file fully defines the node parameters except `use_sim_time`, which remains connected to the launch argument so the same file can be used in both real and simulated runs.
+Runtime dependencies are:
 
-Launch arguments still provide `namespace`, remappings, logging options, and node options, but not the node parameter values listed below.
+- `joy_linux`
+- `robotnik_pad`
+- `robotnik_pad_plugins`
+- `ros2_launch_helpers`
+- ROS 2 launch libraries
 
-```yaml
-/**/joy_linux:
-  ros__parameters:
-    use_sim_time: $(var use_sim_time)
-    dev: /dev/input/js0
-    dev_name: _not_provided_
-    deadzone: 0.05
-    autorepeat_rate: 30.0
-    coalesce_interval: 0.001
-    default_trig_val: false
-    sticky_buttons: false
+`deps.repos` pins the external Robotnik package and the source repository used for
+`ros2_launch_helpers`.
+The repository file complements `package.xml`; it does not replace runtime dependency declarations.
 
-/**/robotnik_pad:
-  ros__parameters:
-    use_sim_time: $(var use_sim_time)
-    desired_freq: 30.0
-    pad:
-      num_of_buttons: 11
-      num_of_axes: 8
-      joy_topic: joy
-      joy_timeout: 1.0
-    plugins:
-      - Movement
-    Movement:
-      type: robotnik_pad_plugins/Movement
-      max_linear_speed: 1.0
-      max_angular_speed: 1.5
-      cmd_topic_vel: twist_cmd/joypad
-      config:
-        button_deadman: 5
-        axis_linear_x: 1
-        axis_linear_y: 0
-        axis_angular_z: 3
-        button_speed_up: 3
-        button_speed_down: 0
-        button_kinematic_mode: 2
-        use_accel_watchdog: false
-        axis_watchdog: [6, 7, 8]
-        watchdog_duration: 0.0
+## Build and test
+
+From the workspace root:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+colcon build --merge-install --symlink-install --packages-select teleop_twist_gamepad
+source install/setup.bash
+colcon test --merge-install --packages-select teleop_twist_gamepad
+colcon test-result --test-result-base build/teleop_twist_gamepad --verbose
 ```

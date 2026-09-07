@@ -2,8 +2,10 @@
 <package format="3">
   <name>teleop_twist_gamepad</name>
   <version>1.0.0</version>
-  <description>Launch joy_linux and robotnik_pad for configurable gamepad teleoperation.</description>
-  <maintainer email="jfrascon@eurecat.org">jfrascon</maintainer>
+  <description>
+    Launch joy_linux and robotnik_pad for configurable gamepad teleoperation.
+  </description>
+  <maintainer email="jfrascon@gmail.com">Juan Francisco Rascon Crespo</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -23,7 +25,6 @@
   <test_depend>ament_cmake_xmllint</test_depend>
   <test_depend>ament_index_python</test_depend>
   <test_depend>ament_lint_auto</test_depend>
-  <test_depend>python3-pytest</test_depend>
   <test_depend>python3-yaml</test_depend>
 
   <export>
